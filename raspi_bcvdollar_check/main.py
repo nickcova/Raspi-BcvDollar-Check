@@ -5,6 +5,7 @@ from decimal import Decimal
 from lxml import etree
 from inky import auto
 import argparse
+import os
 import requests
 import sys
 from PIL import Image, ImageDraw, ImageFont
@@ -20,6 +21,7 @@ YELLOW_ANSI = "\033[33m"
 RESET_ANSI = "\033[0m"
 
 # Constants
+PATH = os.path.dirname(__file__)
 OFICIAL_TARGET_URL = "https://www.bcv.org.ve/"
 PARALLEL_TARGET_URL = "https://exchangemonitor.net/venezuela/monitor-dolar"
 
@@ -34,6 +36,7 @@ def shorten_date(date_str):
     word_list[2] = month_str[:3] + "."
     # print(word_array)
     return " ".join(word_list)
+
 
 def get_price_from_bcv():
     rounded_amount = -1
@@ -73,6 +76,7 @@ def get_price_from_bcv():
         raise
 
     return rounded_amount, date_price
+
 
 def get_parallel_price():
     rounded_amount = -1;
@@ -117,6 +121,7 @@ def get_parallel_price():
     # print(rounded_amount)
     return rounded_amount
 
+
 def update_screen(date, official_price, average_price):
     inky_display = auto()
     image = Image.new("P", inky_display.resolution)
@@ -135,9 +140,29 @@ def update_screen(date, official_price, average_price):
     inky_display.show()
     return
 
+
+def show_error_screen():
+    inky_display = auto()
+    WIDTH, HEIGHT = inky_display.resolution
+    
+    font = ImageFont.truetype(SourceSansProBold, int(21))
+    canvas = Image.new ("P", (WIDTH, HEIGHT))
+
+    image = Image.open(os.path.join(PATH, "img/exception_01.png")).resize((WIDTH, HEIGHT)).convert("P")
+    canvas.paste(image, (0, 0))
+    
+
+    inky_display.set_image(canvas)
+    inky_display.show()    
+    return
+
+
 def main() -> int:
     global silent_mode
     global update_screen
+
+    show_error_screen()
+    return 0
 
     parser = argparse.ArgumentParser(description="RasPi BCV Dollar Check - Looks up and shows current dollar exchange rates")
     parser.add_argument("-c", "--console", action="store_true", help="Console mode. Does not update e-ink screen.")
