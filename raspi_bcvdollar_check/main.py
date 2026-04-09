@@ -11,6 +11,7 @@ import sys
 from PIL import Image, ImageDraw, ImageFont
 # from font_intuitive import Intuitive
 from font_source_sans_pro import SourceSansProBold
+from datetime import datetime
 
 requests.urllib3.disable_warnings()
 
@@ -64,15 +65,21 @@ def get_price_from_bcv():
     except requests.exceptions.Timeout:
         if not silent_mode:
             print("A Timeout occurred (BCV)")
+        if update_screen:
+            show_error_screen("A Timeout occurred (BCV)")
         raise
     except requests.exceptions.HTTPError as err:
         if not silent_mode:        
             print("HTTP request returned an unsuccessful status code (BCV)")
             print(f"Status code: {err.response.status_code}")
+        if update_screen:
+            show_error_screen("HTTP Error", f"Status code: {err.response.status_code}")
         raise
     except requests.exceptions.ConnectionError as conErr:
         if not silent_mode:
             print("A network problem occurred (BCV)")
+        if update_screen:
+            show_error_screen("A network problem", "occurred (BCV)")            
         raise
 
     return rounded_amount, date_price
@@ -141,17 +148,32 @@ def update_screen(date, official_price, average_price):
     return
 
 
-def show_error_screen():
+def show_error_screen(message, message2="", message3=""):
     inky_display = auto()
     WIDTH, HEIGHT = inky_display.resolution
     
-    font = ImageFont.truetype(SourceSansProBold, int(21))
+    message_font = ImageFont.truetype(SourceSansProBold, int(18))
     canvas = Image.new ("P", (WIDTH, HEIGHT))
 
     image = Image.open(os.path.join(PATH, "img/exception_01.png")).resize((WIDTH, HEIGHT)).convert("P")
     canvas.paste(image, (0, 0))
-    
 
+    draw = ImageDraw.Draw(canvas)
+
+    # Draw date first
+    date_font = ImageFont.truetype(SourceSansProBold, int(13))
+    now_str = datetime.now().strftime("%Y.%m.%d %I:%M:%S %p")
+    draw.text((37, 26), now_str, inky_display.RED, font=date_font)
+
+    # Draw Messages
+    draw.text((5, 40), message, inky_display.BLACK, font=message_font)
+
+    if message2 != "":
+        draw.text((5, 60), message2, inky_display.BLACK, font=message_font)
+
+    if message3 != "":
+        draw.text((5, 80), message3, inky_display.BLACK, font=message_font)
+  
     inky_display.set_image(canvas)
     inky_display.show()    
     return
@@ -161,8 +183,9 @@ def main() -> int:
     global silent_mode
     global update_screen
 
-    show_error_screen()
-    return 0
+    # For testing stuff, will delete later
+    # show_error_screen("A Timeout occurred (BCV)")
+    # return 0
 
     parser = argparse.ArgumentParser(description="RasPi BCV Dollar Check - Looks up and shows current dollar exchange rates")
     parser.add_argument("-c", "--console", action="store_true", help="Console mode. Does not update e-ink screen.")
