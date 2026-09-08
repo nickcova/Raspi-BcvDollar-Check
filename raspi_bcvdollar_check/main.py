@@ -25,6 +25,8 @@ RESET_ANSI = "\033[0m"
 PATH = os.path.dirname(__file__)
 OFICIAL_TARGET_URL = "https://www.bcv.org.ve/"
 PARALLEL_TARGET_URL = "https://exchangemonitor.net/venezuela/monitor-dolar"
+DOLAR_API_URL = "https://ve.dolarapi.com/v1"
+DOLLARS_ENDPOINT = "/dolares"
 
 # Globals
 update_screen = True
@@ -38,6 +40,16 @@ def shorten_date(date_str):
     # print(word_array)
     return " ".join(word_list)
 
+
+def format_date(date_str: str):
+    try:
+        dt = datetime.fromisoformat(date_str)
+        formatted = dt.strftime("%Y-%m-%d %I:%M %p")
+        return formatted
+    except ValueError as e:
+        if not silent_mode: 
+            print("Error parsing date:", e)
+        return None
 
 def get_price_from_bcv():
     rounded_amount = -1
@@ -129,6 +141,49 @@ def get_parallel_price():
     return rounded_amount
 
 
+def get_dolarapi_json():
+    try:
+        response = requests.get(f"{DOLAR_API_URL}{DOLLARS_ENDPOINT}", timeout=10, verify=False)
+
+        if response.status_code != requests.codes.ok:
+            response.raise_for_status()
+
+        try:
+            data = response.json()
+        except ValueError:
+            if not silent_mode:
+                print(f"{RED_ANSI}Error:{RESET_ANSI} Response is not a valid JSON.")
+            if update_screen:
+                show_error_screen("Response is not", "a valid JSON")            
+            return None
+        return data
+
+    except requests.exceptions.Timeout:
+        if not silent_mode:
+            print("A Timeout occurred (Dólar API)")
+        if update_screen:
+            show_error_screen("A Timeout occurred (Dólar API)")
+        raise
+    except requests.exceptions.HTTPError as err:
+        if not silent_mode:        
+            print("HTTP request returned an unsuccessful status code (Dólar API)")
+            print(f"Status code: {err.response.status_code}")
+        if update_screen:
+            show_error_screen("HTTP Error", f"Status code: {err.response.status_code}")
+        raise
+    except requests.exceptions.ConnectionError as conErr:
+        if not silent_mode:
+            print("A network problem occurred (Dólar API)")
+        if update_screen:
+            show_error_screen("A network problem", "occurred (Dólar API)")            
+        raise
+    except requests.exceptions.RequestException as e:
+        if not silent_mode:
+            print(f"Request failed: {e}")    
+        if update_screen:
+            show_error_screen("Http Error", f"{e}")
+        raise
+
 def update_screen(date, official_price, average_price):
     inky_display = auto()
     image = Image.new("P", inky_display.resolution)
@@ -202,8 +257,14 @@ def main() -> int:
         print(YELLOW_ANSI + "Running in silent mode\n" + RESET_ANSI)
 
     try:
-        official_price, date_price = get_price_from_bcv()
-        average_price = get_parallel_price()
+        # official_price, date_price = get_price_from_bcv()
+        # average_price = get_parallel_price()
+        data_json = get_dolarapi_json()
+        if data_json is not None:
+            official_price = round(data_json[0].get("promedio"), 2)
+            average_price = round(data_json[1].get("promedio"), 2)
+            date_price = format_date(data_json[0].get("fechaActualizacion"))
+            
 
         if not silent_mode:
             print(date_price)
