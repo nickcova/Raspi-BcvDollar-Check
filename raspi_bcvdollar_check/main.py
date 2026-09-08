@@ -1,17 +1,17 @@
 #!/usr/bin/python3
 
+# from font_intuitive import Intuitive
 from bs4 import BeautifulSoup
+from datetime import datetime
 from decimal import Decimal
-from lxml import etree
+from font_source_sans_pro import SourceSansProBold
 from inky import auto
+from lxml import etree
+from PIL import Image, ImageDraw, ImageFont
 import argparse
 import os
 import requests
 import sys
-from PIL import Image, ImageDraw, ImageFont
-# from font_intuitive import Intuitive
-from font_source_sans_pro import SourceSansProBold
-from datetime import datetime
 
 requests.urllib3.disable_warnings()
 
@@ -32,7 +32,7 @@ DOLLARS_ENDPOINT = "/dolares"
 update_screen = True
 silent_mode = False
 
-
+# deprecated: "Use format_date() instead"
 def shorten_date(date_str):
     word_list = date_str.split(" ")
     month_str = word_list[2]
@@ -51,6 +51,7 @@ def format_date(date_str: str):
             print("Error parsing date:", e)
         return None
 
+# deprecated: "Use get_dolarapi_json() instead"
 def get_price_from_bcv():
     rounded_amount = -1
     date_price = ""
@@ -97,6 +98,7 @@ def get_price_from_bcv():
     return rounded_amount, date_price
 
 
+# deprecated: "Use get_dolarapi_json() instead"
 def get_parallel_price():
     rounded_amount = -1;
 
@@ -184,6 +186,7 @@ def get_dolarapi_json():
             show_error_screen("Http Error", f"{e}")
         raise
 
+
 def update_screen(date, official_price, average_price):
     inky_display = auto()
     image = Image.new("P", inky_display.resolution)
@@ -194,9 +197,9 @@ def update_screen(date, official_price, average_price):
 
     draw.text((5,0), date, inky_display.BLACK, font=date_font)
     draw.text((5,20), "OFICIAL", inky_display.BLACK, font=date_font)
-    draw.text((120,20), "PARALELO", inky_display.BLACK, font=date_font)
-    draw.text((5,40), "Bs.{}".format(official_price), inky_display.BLACK, font=font)
-    draw.text((120,40), "Bs.{}".format(average_price), inky_display.BLACK, font=font)
+    draw.text((110,20), "Bs.{}".format(official_price), inky_display.BLACK, font=font)
+    draw.text((5,40), "PARALELO", inky_display.BLACK, font=date_font)
+    draw.text((110,40), "Bs.{}".format(average_price), inky_display.BLACK, font=font)
 
     inky_display.set_image(image)
     inky_display.show()
