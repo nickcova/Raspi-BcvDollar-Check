@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 import argparse
 import os
 import requests
+import subprocess
 import sys
 
 requests.urllib3.disable_warnings()
@@ -22,7 +23,7 @@ YELLOW_ANSI = "\033[33m"
 RESET_ANSI = "\033[0m"
 
 # Constants
-PATH = os.path.dirname(__file__)
+SCRIPT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 OFICIAL_TARGET_URL = "https://www.bcv.org.ve/"
 PARALLEL_TARGET_URL = "https://exchangemonitor.net/venezuela/monitor-dolar"
 DOLAR_API_URL = "https://ve.dolarapi.com/v1"
@@ -272,13 +273,15 @@ def main() -> int:
         if not silent_mode:
             print(date_price)
             print("Oficial (BCV):\tBs. {}".format(official_price))
-            print("Paralelo:\tBs. {}".format(average_price))
+            print("Paralelo (promedio):\tBs. {}".format(average_price))
 
         # Update Screen
         if update_screen:
             update_screen(date_price, official_price, average_price)
 
-        # Play Sound (?)
+        # Play Sound
+        mp3_path = os.path.join(SCRIPT_DIR_PATH, "sound/notification.mp3")
+        audio_subprocess = subprocess.Popen(["mpg123", "-q", mp3_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         # Update DB (?)
 
