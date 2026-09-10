@@ -32,6 +32,7 @@ DOLLARS_ENDPOINT = "/dolares"
 # Globals
 update_screen = True
 silent_mode = False
+mute = False
 
 # deprecated: "Use format_date() instead"
 def shorten_date(date_str):
@@ -193,7 +194,7 @@ def update_screen(date, official_price, average_price):
     image = Image.new("P", inky_display.resolution)
     draw = ImageDraw.Draw(image)
     # font = ImageFont.truetype(Intuitive, int(22))
-    font = ImageFont.truetype(SourceSansProBold, int(21))
+    font = ImageFont.truetype(SourceSansProBold, int(22))
     date_font = ImageFont.truetype(SourceSansProBold, int(18))
 
     draw.text((5,0), date, inky_display.BLACK, font=date_font)
@@ -241,6 +242,7 @@ def show_error_screen(message, message2="", message3=""):
 def main() -> int:
     global silent_mode
     global update_screen
+    global mute
 
     # For testing stuff, will delete later
     # show_error_screen("A Timeout occurred (BCV)")
@@ -249,6 +251,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="RasPi BCV Dollar Check - Looks up and shows current dollar exchange rates")
     parser.add_argument("-c", "--console", action="store_true", help="Console mode. Does not update e-ink screen.")
     parser.add_argument("-s", "--silent", action="store_true", help="Silent mode. Does not print messages to standard output.")
+    parser.add_argument("-m", "--mute", action="store_true", help="Mute sounds. Does not emit sounds through the SpeakerPhat.")
 
     args = parser.parse_args()
 
@@ -259,6 +262,11 @@ def main() -> int:
     if args.silent:
         silent_mode = True
         print(YELLOW_ANSI + "Running in silent mode\n" + RESET_ANSI)
+
+    if args.mute:
+        mute = True
+        print(YELLOW_ANSI + "Running in mute mode\n" + RESET_ANSI)
+
 
     try:
         # official_price, date_price = get_price_from_bcv()
@@ -280,8 +288,9 @@ def main() -> int:
             update_screen(date_price, official_price, average_price)
 
         # Play Sound
-        mp3_path = os.path.join(SCRIPT_DIR_PATH, "sound/notification.mp3")
-        audio_subprocess = subprocess.Popen(["mpg123", "-q", mp3_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if not mute:
+            mp3_path = os.path.join(SCRIPT_DIR_PATH, "sound/notification.mp3")
+            audio_subprocess = subprocess.Popen(["mpg123", "-q", mp3_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         # Update DB (?)
 
