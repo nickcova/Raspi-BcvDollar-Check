@@ -7,9 +7,11 @@ from decimal import Decimal
 from font_source_sans_pro import SourceSansProBold
 from inky import auto
 from lxml import etree
+from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 import argparse
 import os
+import sqlite3
 import requests
 import subprocess
 import sys
@@ -24,10 +26,11 @@ RESET_ANSI = "\033[0m"
 
 # Constants
 SCRIPT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
-OFICIAL_TARGET_URL = "https://www.bcv.org.ve/"
-PARALLEL_TARGET_URL = "https://exchangemonitor.net/venezuela/monitor-dolar"
+OFICIAL_TARGET_URL = "https://www.bcv.org.ve/" # TODO Delete this variable
+PARALLEL_TARGET_URL = "https://exchangemonitor.net/venezuela/monitor-dolar" # TODO Delete this variable
 DOLAR_API_URL = "https://ve.dolarapi.com/v1"
 DOLLARS_ENDPOINT = "/dolares"
+DB_FILE = Path("/home/nick/Data/exchange_rates.db")
 
 # Globals
 update_screen = True
@@ -189,7 +192,7 @@ def get_dolarapi_json():
         raise
 
 
-def update_screen(date, official_price, average_price):
+def update_screen(date, official_rate, parallel_rate):
     inky_display = auto()
     image = Image.new("P", inky_display.resolution)
     draw = ImageDraw.Draw(image)
@@ -199,13 +202,39 @@ def update_screen(date, official_price, average_price):
 
     draw.text((5,0), date, inky_display.BLACK, font=date_font)
     draw.text((5,20), "OFICIAL", inky_display.BLACK, font=date_font)
-    draw.text((110,20), "Bs.{}".format(official_price), inky_display.BLACK, font=font)
+    draw.text((110,20), "Bs.{}".format(official_rate), inky_display.BLACK, font=font)
     draw.text((5,40), "PARALELO", inky_display.BLACK, font=date_font)
-    draw.text((110,40), "Bs.{}".format(average_price), inky_display.BLACK, font=font)
+    draw.text((110,40), "Bs.{}".format(parallel_rate), inky_display.BLACK, font=font)
 
     inky_display.set_image(image)
     inky_display.show()
     return
+
+def init_db():
+    """Checks if the database file exists. Creates it and the schema if missing."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS exchange_rates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            official_rate REAL NOT NULL,
+            parallel_rate REAL NOT NULL,
+            timestamp TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def save_rate(official_rate, parallel_rate, date_rate):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO exchange_rates (official_rate, parallel_rate, timestamp) VALUES (?, ?, ?)",
+        (official_rate, parallel_rate, date_rate)
+    )
+    conn.commit()
+    conn.close()
 
 
 def show_error_screen(message, message2="", message3=""):
@@ -273,26 +302,29 @@ def main() -> int:
         # average_price = get_parallel_price()
         data_json = get_dolarapi_json()
         if data_json is not None:
-            official_price = round(data_json[0].get("promedio"), 2)
-            average_price = round(data_json[1].get("promedio"), 2)
-            date_price = format_date(data_json[0].get("fechaActualizacion"))
+            official_rate = round(data_json[0].get("promedio"), 2)
+            parallel_rate = round(data_json[1].get("promedio"), 2)
+            date_rate = format_date(data_json[0].get("fechaActualizacion"))
             
 
         if not silent_mode:
-            print(date_price)
-            print("Oficial (BCV):\tBs. {}".format(official_price))
-            print("Paralelo (promedio):\tBs. {}".format(average_price))
+            print(date_rate)
+            print("Oficial (BCV):\tBs. {}".format(official_rate))
+            print("Paralelo (promedio):\tBs. {}".format(parallel_rate))
 
         # Update Screen
         if update_screen:
-            update_screen(date_price, official_price, average_price)
+            update_screen(date_rate, official_rate, parallel_rate)
 
         # Play Sound
         if not mute:
             mp3_path = os.path.join(SCRIPT_DIR_PATH, "sound/notification.mp3")
             audio_subprocess = subprocess.Popen(["mpg123", "-q", mp3_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        # Update DB (?)
+        # Update DB
+        init_db()
+        save_rate(official_rate, parallel_rate, date_rate)
+
 
     except requests.exceptions.Timeout:
         # A Timeout occurred
