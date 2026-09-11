@@ -53,7 +53,7 @@ def format_date(date_str: str):
         formatted = dt.strftime("%Y-%m-%d %I:%M %p")
         return formatted
     except ValueError as e:
-        if not silent_mode: 
+        if not silent_mode:
             print("Error parsing date:", e)
         return None
 
@@ -88,7 +88,7 @@ def get_price_from_bcv():
             show_error_screen("A Timeout occurred (BCV)")
         raise
     except requests.exceptions.HTTPError as err:
-        if not silent_mode:        
+        if not silent_mode:
             print("HTTP request returned an unsuccessful status code (BCV)")
             print(f"Status code: {err.response.status_code}")
         if update_screen:
@@ -98,7 +98,7 @@ def get_price_from_bcv():
         if not silent_mode:
             print("A network problem occurred (BCV)")
         if update_screen:
-            show_error_screen("A network problem", "occurred (BCV)")            
+            show_error_screen("A network problem", "occurred (BCV)")
         raise
 
     return rounded_amount, date_price
@@ -162,7 +162,7 @@ def get_dolarapi_json():
             if not silent_mode:
                 print(f"{RED_ANSI}Error:{RESET_ANSI} Response is not a valid JSON.")
             if update_screen:
-                show_error_screen("Response is not", "a valid JSON")            
+                show_error_screen("Response is not", "a valid JSON")
             return None
         return data
 
@@ -173,7 +173,7 @@ def get_dolarapi_json():
             show_error_screen("A Timeout occurred (Dólar API)")
         raise
     except requests.exceptions.HTTPError as err:
-        if not silent_mode:        
+        if not silent_mode:
             print("HTTP request returned an unsuccessful status code (Dólar API)")
             print(f"Status code: {err.response.status_code}")
         if update_screen:
@@ -183,33 +183,75 @@ def get_dolarapi_json():
         if not silent_mode:
             print("A network problem occurred (Dólar API)")
         if update_screen:
-            show_error_screen("A network problem", "occurred (Dólar API)")            
+            show_error_screen("A network problem", "occurred (Dólar API)")
         raise
     except requests.exceptions.RequestException as e:
         if not silent_mode:
-            print(f"Request failed: {e}")    
+            print(f"Request failed: {e}")
         if update_screen:
             show_error_screen("Http Error", f"{e}")
         raise
+    return
 
 
 def update_screen(date, official_rate, parallel_rate):
     inky_display = auto()
-    image = Image.new("P", inky_display.resolution)
-    draw = ImageDraw.Draw(image)
-    # font = ImageFont.truetype(Intuitive, int(22))
-    font = ImageFont.truetype(SourceSansProBold, int(22))
+    display_width = inky_display.resolution[0]
+    display_height = inky_display.resolution[1]
+    canvas = Image.new("P", inky_display.resolution)
+    draw = ImageDraw.Draw(canvas)
+
+    # Set fonts
+    font = ImageFont.truetype(SourceSansProBold, int(24))
     date_font = ImageFont.truetype(SourceSansProBold, int(18))
 
-    draw.text((5,0), date, inky_display.BLACK, font=date_font)
-    draw.text((5,20), "OFICIAL", inky_display.BLACK, font=date_font)
-    draw.text((110,20), "Bs.{}".format(official_rate), inky_display.BLACK, font=font)
-    draw.text((5,40), "PARALELO", inky_display.BLACK, font=date_font)
-    draw.text((110,40), "Bs.{}".format(parallel_rate), inky_display.BLACK, font=font)
+    # Fetch images
+    arrow_up_img_path = os.path.join(SCRIPT_DIR_PATH, "img/arrow-up.png")
+    arrow_up_img = Image.open(arrow_up_img_path)
+    arrow_up_img = arrow_up_img.resize((16, 16), Image.Resampling.LANCZOS)
 
-    inky_display.set_image(image)
+    arrow_down_img_path = os.path.join(SCRIPT_DIR_PATH, "img/arrow-down.png")
+    arrow_down_img = Image.open(arrow_down_img_path)
+    arrow_down_img = arrow_down_img.resize((16, 16), Image.Resampling.LANCZOS)
+
+    # Set texts
+    official_txt = "OFICIAL"
+    official_rate_txt = "Bs.{}".format(official_rate)
+    official_rate_fluctuation_txt = "+99.99"
+    parallel_txt = "PARALELO"
+    parallel_rate_txt = "Bs.{}".format(parallel_rate)
+    parallel_rate_fluctuation_txt = "-99.99"
+
+    # Calculate coordinates
+    _,_,official_rate_fluctuation_txt_w,_ = date_font.getbbox(official_rate_fluctuation_txt)
+    official_rate_fluctuation_txt_X = display_width - (official_rate_fluctuation_txt_w + 5)
+    official_rate_fluctuation_arrow_X = official_rate_fluctuation_txt_X - 20
+
+    _,_,parallel_rate_fluctuation_txt_w,_ = date_font.getbbox(parallel_rate_fluctuation_txt)
+    parallel_rate_fluctuation_txt_X = display_width - (parallel_rate_fluctuation_txt_w + 5)
+    parallel_rate_fluctuation_arrow_X = parallel_rate_fluctuation_txt_X - 20
+
+    # Draw texts
+    draw.text((5, 0), date, inky_display.BLACK, font=date_font)
+
+    draw.text((5, 26), official_txt, inky_display.BLACK, font=date_font)
+    draw.text((93, 21), official_rate_txt, inky_display.BLACK, font=font)
+    draw.text((official_rate_fluctuation_txt_X, 45), official_rate_fluctuation_txt, inky_display.RED, font=date_font)
+
+    draw.text((5, 63), parallel_txt, inky_display.BLACK, font=date_font)
+    draw.text((93, 58), parallel_rate_txt, inky_display.BLACK, font=font)
+    draw.text((parallel_rate_fluctuation_txt_X, 82), parallel_rate_fluctuation_txt, inky_display.BLACK, font=date_font)
+
+    # Draw images
+    draw = ImageDraw.Draw(arrow_up_img)
+    draw = ImageDraw.Draw(arrow_down_img)
+    canvas.paste(arrow_up_img, (official_rate_fluctuation_arrow_X, 48))
+    canvas.paste(arrow_down_img, (parallel_rate_fluctuation_arrow_X, 87))
+
+    inky_display.set_image(canvas)
     inky_display.show()
     return
+
 
 def init_db():
     """Checks if the database file exists. Creates it and the schema if missing."""
@@ -225,6 +267,7 @@ def init_db():
     """)
     conn.commit()
     conn.close()
+    return
 
 
 def save_rate(official_rate, parallel_rate, date_rate):
@@ -236,12 +279,18 @@ def save_rate(official_rate, parallel_rate, date_rate):
     )
     conn.commit()
     conn.close()
+    return
+
+
+def exchange_rate_fluctuation(official_rate):
+    
+    return
 
 
 def show_error_screen(message, message2="", message3=""):
     inky_display = auto()
     WIDTH, HEIGHT = inky_display.resolution
-    
+
     message_font = ImageFont.truetype(SourceSansProBold, int(18))
     canvas = Image.new ("P", (WIDTH, HEIGHT))
 
@@ -263,9 +312,9 @@ def show_error_screen(message, message2="", message3=""):
 
     if message3 != "":
         draw.text((5, 80), message3, inky_display.BLACK, font=message_font)
-  
+
     inky_display.set_image(canvas)
-    inky_display.show()    
+    inky_display.show()
     return
 
 
@@ -303,19 +352,22 @@ def main() -> int:
         print(YELLOW_ANSI + "Running in dry run mode\n" + RESET_ANSI)
 
     try:
-        # official_price, date_price = get_price_from_bcv()
-        # average_price = get_parallel_price()
+        # Fetch exchange rates
+        # official_price, date_price = get_price_from_bcv() TODO Delete this line
+        # average_price = get_parallel_price() TODO Delete this line
         data_json = get_dolarapi_json()
         if data_json is not None:
             official_rate = round(data_json[0].get("promedio"), 2)
             parallel_rate = round(data_json[1].get("promedio"), 2)
             date_rate = format_date(data_json[0].get("fechaActualizacion"))
-            
 
         if not silent_mode:
             print(date_rate)
             print("Oficial (BCV):\tBs. {}".format(official_rate))
             print("Paralelo (promedio):\tBs. {}".format(parallel_rate))
+
+        # Calculate fluctuation
+        exchange_rate_fluctuation(official_rate)
 
         # Update Screen
         if update_screen:
