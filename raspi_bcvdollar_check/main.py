@@ -194,7 +194,7 @@ def get_dolarapi_json():
     return
 
 
-def update_screen(date, official_rate, parallel_rate):
+def update_screen(date, official_rate, parallel_rate, official_rate_delta, parallel_rate_delta):
     inky_display = auto()
     display_width = inky_display.resolution[0]
     display_height = inky_display.resolution[1]
@@ -217,36 +217,39 @@ def update_screen(date, official_rate, parallel_rate):
     # Set texts
     official_txt = "OFICIAL"
     official_rate_txt = "Bs.{}".format(official_rate)
-    official_rate_fluctuation_txt = "+99.99"
+    official_rate_delta_txt = "+99.99"
     parallel_txt = "PARALELO"
     parallel_rate_txt = "Bs.{}".format(parallel_rate)
-    parallel_rate_fluctuation_txt = "-99.99"
+    parallel_rate_delta_txt = "-99.99"
 
     # Calculate coordinates
-    _,_,official_rate_fluctuation_txt_w,_ = date_font.getbbox(official_rate_fluctuation_txt)
-    official_rate_fluctuation_txt_X = display_width - (official_rate_fluctuation_txt_w + 5)
-    official_rate_fluctuation_arrow_X = official_rate_fluctuation_txt_X - 20
+    _,_,official_rate_delta_txt_w,_ = date_font.getbbox(official_rate_delta_txt)
+    official_rate_delta_txt_X = display_width - (official_rate_delta_txt_w + 5)
+    official_rate_delta_arrow_X = official_rate_delta_txt_X - 20
 
-    _,_,parallel_rate_fluctuation_txt_w,_ = date_font.getbbox(parallel_rate_fluctuation_txt)
-    parallel_rate_fluctuation_txt_X = display_width - (parallel_rate_fluctuation_txt_w + 5)
-    parallel_rate_fluctuation_arrow_X = parallel_rate_fluctuation_txt_X - 20
+    _,_,parallel_rate_delta_txt_w,_ = date_font.getbbox(parallel_rate_delta_txt)
+    parallel_rate_delta_txt_X = display_width - (parallel_rate_delta_txt_w + 5)
+    parallel_rate_delta_arrow_X = parallel_rate_delta_txt_X - 20
 
     # Draw texts
     draw.text((5, 0), date, inky_display.BLACK, font=date_font)
 
     draw.text((5, 26), official_txt, inky_display.BLACK, font=date_font)
     draw.text((93, 21), official_rate_txt, inky_display.BLACK, font=font)
-    draw.text((official_rate_fluctuation_txt_X, 45), official_rate_fluctuation_txt, inky_display.RED, font=date_font)
+    draw.text((official_rate_delta_txt_X, 45), official_rate_delta_txt, inky_display.RED, font=date_font)
 
     draw.text((5, 63), parallel_txt, inky_display.BLACK, font=date_font)
     draw.text((93, 58), parallel_rate_txt, inky_display.BLACK, font=font)
-    draw.text((parallel_rate_fluctuation_txt_X, 82), parallel_rate_fluctuation_txt, inky_display.BLACK, font=date_font)
+    draw.text((parallel_rate_delta_txt_X, 82), parallel_rate_delta_txt, inky_display.BLACK, font=date_font)
 
     # Draw images
+    # -- Official rate delta arrow
     draw = ImageDraw.Draw(arrow_up_img)
+    canvas.paste(arrow_up_img, (official_rate_delta_arrow_X, 48))
+
+    # -- Parallel rate delta arrow
     draw = ImageDraw.Draw(arrow_down_img)
-    canvas.paste(arrow_up_img, (official_rate_fluctuation_arrow_X, 48))
-    canvas.paste(arrow_down_img, (parallel_rate_fluctuation_arrow_X, 87))
+    canvas.paste(arrow_down_img, (parallel_rate_delta_arrow_X, 87))
 
     inky_display.set_image(canvas)
     inky_display.show()
@@ -371,7 +374,7 @@ def main() -> int:
 
         # Update Screen
         if update_screen:
-            update_screen(date_rate, official_rate, parallel_rate)
+            update_screen(date_rate, official_rate, parallel_rate, 0, 0)
 
         # Play Sound
         if not mute:
