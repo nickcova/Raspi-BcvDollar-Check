@@ -36,6 +36,7 @@ DB_FILE = Path("/home/nick/Data/exchange_rates.db")
 update_screen = True
 silent_mode = False
 mute = False
+dry_run = False
 
 # deprecated: "Use format_date() instead"
 def shorten_date(date_str):
@@ -281,6 +282,7 @@ def main() -> int:
     parser.add_argument("-c", "--console", action="store_true", help="Console mode. Does not update e-ink screen.")
     parser.add_argument("-s", "--silent", action="store_true", help="Silent mode. Does not print messages to standard output.")
     parser.add_argument("-m", "--mute", action="store_true", help="Mute sounds. Does not emit sounds through the SpeakerPhat.")
+    parser.add_argument("-n", "--dry-run", action="store_true", help="Run the script without saving changes to the database.")
 
     args = parser.parse_args()
 
@@ -296,6 +298,9 @@ def main() -> int:
         mute = True
         print(YELLOW_ANSI + "Running in mute mode\n" + RESET_ANSI)
 
+    if args.dry_run:
+        dry_run = True
+        print(YELLOW_ANSI + "Running in dry run mode\n" + RESET_ANSI)
 
     try:
         # official_price, date_price = get_price_from_bcv()
@@ -322,8 +327,9 @@ def main() -> int:
             audio_subprocess = subprocess.Popen(["mpg123", "-q", mp3_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         # Update DB
-        init_db()
-        save_rate(official_rate, parallel_rate, date_rate)
+        if not dry_run:
+            init_db()
+            save_rate(official_rate, parallel_rate, date_rate)
 
 
     except requests.exceptions.Timeout:
