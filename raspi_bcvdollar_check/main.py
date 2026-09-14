@@ -325,6 +325,7 @@ def main() -> int:
     global silent_mode
     global update_screen
     global mute
+    global dry_run
 
     # For testing stuff, will delete later
     # show_error_screen("A Timeout occurred (BCV)")
