@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-# from font_intuitive import Intuitive
 from bs4 import BeautifulSoup
 from datetime import datetime
 from decimal import Decimal
@@ -57,6 +56,7 @@ def format_date(date_str: str):
         if not silent_mode:
             print("Error parsing date:", e)
         return None
+
 
 # deprecated: "Use get_dolarapi_json() instead"
 def get_price_from_bcv():
@@ -145,8 +145,7 @@ def get_parallel_price():
         if not silent_mode:
             print("A network problem occurred (Monitor Dólar VZLA)")
         raise
- 
-    # print(rounded_amount)
+
     return rounded_amount
 
 
@@ -195,7 +194,7 @@ def get_dolarapi_json(endpoint):
     return
 
 
-def update_screen(date, official_rate, parallel_rate, euro_rate, official_rate_delta, parallel_rate_delta, euro_delta):
+def update_screen(date, official_rate, parallel_rate, euro_rate, official_rate_delta, parallel_rate_delta, euro_rate_delta):
     inky_display = auto()
     display_width = inky_display.resolution[0]
     display_height = inky_display.resolution[1]
@@ -215,47 +214,47 @@ def update_screen(date, official_rate, parallel_rate, euro_rate, official_rate_d
     arrow_down_img = Image.open(arrow_down_img_path)
     arrow_down_img = arrow_down_img.resize((16, 16), Image.Resampling.LANCZOS)
 
+    equal_img_path = os.path.join(SCRIPT_DIR_PATH, "img/equal.png")
+    equal_img = Image.open(equal_img_path)
+    equal_img = equal_img.resize((16, 16), Image.Resampling.LANCZOS)
+
     # Set texts
-    official_txt = "OFICIAL"
+    official_txt = "DÓLAR"
     official_rate_txt = "Bs.{}".format(official_rate)
     official_rate_delta_txt = "+99.99"
-    parallel_txt = "PARALELO"
+    parallel_txt = "PROM$"
     parallel_rate_txt = "Bs.{}".format(parallel_rate)
     parallel_rate_delta_txt = "-99.99"
     euro_txt = "EURO"
     euro_rate_txt = "Bs.{}".format(euro_rate)
-
-    # Calculate coordinates
-    _,_,official_rate_delta_txt_w,_ = date_font.getbbox(official_rate_delta_txt)
-    official_rate_delta_txt_X = display_width - (official_rate_delta_txt_w + 5)
-    official_rate_delta_arrow_X = official_rate_delta_txt_X - 20
-
-    _,_,parallel_rate_delta_txt_w,_ = date_font.getbbox(parallel_rate_delta_txt)
-    parallel_rate_delta_txt_X = display_width - (parallel_rate_delta_txt_w + 5)
-    parallel_rate_delta_arrow_X = parallel_rate_delta_txt_X - 20
 
     # Draw texts
     draw.text((5, 0), date, inky_display.BLACK, font=date_font)
 
     draw.text((5, 26), official_txt, inky_display.BLACK, font=date_font)
     draw.text((93, 21), official_rate_txt, inky_display.BLACK, font=font)
-    #draw.text((official_rate_delta_txt_X, 45), official_rate_delta_txt, inky_display.RED, font=date_font)
 
     draw.text((5, 48), parallel_txt, inky_display.BLACK, font=date_font)
     draw.text((93, 43), parallel_rate_txt, inky_display.BLACK, font=font)
-    #draw.text((parallel_rate_delta_txt_X, 82), parallel_rate_delta_txt, inky_display.BLACK, font=date_font)
 
     draw.text((5, 70), euro_txt, inky_display.BLACK, font=date_font)
     draw.text((93, 65), euro_rate_txt, inky_display.BLACK, font=font)
 
-    # Draw images
-    # -- Official rate delta arrow
-    #draw = ImageDraw.Draw(arrow_up_img)
-    #canvas.paste(arrow_up_img, (official_rate_delta_arrow_X, 48))
+    # Draw icons
+    # Dollar rate delta arrow
+    dollar_icon = arrow_up_img if official_rate_delta > 0.0 else arrow_down_img if official_rate_delta < 0.0 else equal_img
+    draw = ImageDraw.Draw(dollar_icon)
+    canvas.paste(dollar_icon, (70, 28))
 
-    # -- Parallel rate delta arrow
-    #draw = ImageDraw.Draw(arrow_down_img)
-    #canvas.paste(arrow_down_img, (parallel_rate_delta_arrow_X, 87))
+    # Parallel rate delta arrow
+    parallel_icon = arrow_up_img if parallel_rate_delta > 0.0 else arrow_down_img if parallel_rate_delta < 0.0 else equal_img
+    draw = ImageDraw.Draw(parallel_icon)
+    canvas.paste(parallel_icon, (70, 52))
+
+    # Euro
+    euro_icon = arrow_up_img if euro_rate_delta > 0.0 else arrow_down_img if euro_rate_delta < 0.0 else equal_img
+    draw = ImageDraw.Draw(euro_icon)
+    canvas.paste(euro_icon, (70, 74))
 
     inky_display.set_image(canvas)
     inky_display.show()
@@ -304,9 +303,9 @@ def exchange_rate_fluctuation(official_rate):
 
     if len(rows) > 1:
         # Calculate deltas
-        dollar_delta = rows[0][1] - rows[1][1]
-        parallel_delta = rows[0][2] - rows[1][2]
-        euro_delta = rows[0][3] - rows[1][3]
+        dollar_delta = round(rows[0][1] - rows[1][1], 2)
+        parallel_delta = round(rows[0][2] - rows[1][2], 2)
+        euro_delta = round(rows[0][3] - rows[1][3], 2)
 
     conn.close()
     return dollar_delta, parallel_delta, euro_delta
@@ -349,6 +348,8 @@ def main() -> int:
     global mute
     global dry_run
 
+    print(GREEN_ANSI + "RasPi BCV Dollar Check" + RESET_ANSI)
+
     # For testing stuff, will delete later
     # show_error_screen("A Timeout occurred (BCV)")
     # return 0
@@ -363,24 +364,22 @@ def main() -> int:
 
     if args.console:
         update_screen = False
-        print(YELLOW_ANSI + "Running in console mode\n" + RESET_ANSI)
+        print(YELLOW_ANSI + "Running in console mode" + RESET_ANSI)
 
     if args.silent:
         silent_mode = True
-        print(YELLOW_ANSI + "Running in silent mode\n" + RESET_ANSI)
+        print(YELLOW_ANSI + "Running in silent mode" + RESET_ANSI)
 
     if args.mute:
         mute = True
-        print(YELLOW_ANSI + "Running in mute mode\n" + RESET_ANSI)
+        print(YELLOW_ANSI + "Running in mute mode" + RESET_ANSI)
 
     if args.dry_run:
         dry_run = True
-        print(YELLOW_ANSI + "Running in dry run mode\n" + RESET_ANSI)
+        print(YELLOW_ANSI + "Running in dry run mode" + RESET_ANSI)
 
     try:
         # Fetch exchange rates
-        # official_price, date_price = get_price_from_bcv() TODO Delete this line
-        # average_price = get_parallel_price() TODO Delete this line
         dollars_data_json = get_dolarapi_json(DOLLARS_ENDPOINT)
         if dollars_data_json is not None:
             official_rate = round(dollars_data_json[0].get("promedio"), 2)
@@ -404,9 +403,9 @@ def main() -> int:
             euro_delta_txt = "+{}".format(euro_delta) if euro_delta > 0 else str(euro_delta)
 
             print(date_rate)
-            print("Oficial (BCV):\tBs. {} ({})".format(official_rate, dollar_delta_txt))
-            print("Paralelo (promedio):\tBs. {} ({})".format(parallel_rate, parallel_delta_txt))
-            print("Euro (BCV):\tBs. {} ({})".format(official_euro_rate, euro_delta_txt))
+            print("Dólar BCV:\tBs. {} ({})".format(official_rate, dollar_delta_txt))
+            print("Dólar promedio:\tBs. {} ({})".format(parallel_rate, parallel_delta_txt))
+            print("Euro BCV:\tBs. {} ({})".format(official_euro_rate, euro_delta_txt))
 
         # Update Screen
         if update_screen:
