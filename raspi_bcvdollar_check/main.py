@@ -271,6 +271,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             official_rate REAL NOT NULL,
             parallel_rate REAL NOT NULL,
+            euro_rate REAL NOT NULL,
             timestamp TEXT NOT NULL
         )
     """)
@@ -279,12 +280,12 @@ def init_db():
     return
 
 
-def save_rate(official_rate, parallel_rate, date_rate):
+def save_rate(official_rate, parallel_rate, euro_rate, date_rate):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO exchange_rates (official_rate, parallel_rate, timestamp) VALUES (?, ?, ?)",
-        (official_rate, parallel_rate, date_rate)
+        "INSERT INTO exchange_rates (official_rate, parallel_rate, euro_rate, timestamp) VALUES (?, ?, ?, ?)",
+        (official_rate, parallel_rate, euro_rate, date_rate)
     )
     conn.commit()
     conn.close()
@@ -396,7 +397,7 @@ def main() -> int:
         # Update DB
         if not dry_run:
             init_db()
-            save_rate(official_rate, parallel_rate, date_rate)
+            save_rate(official_rate, parallel_rate, official_euro_rate, date_rate)
 
 
     except requests.exceptions.Timeout:
