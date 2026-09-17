@@ -195,7 +195,7 @@ def get_dolarapi_json(endpoint):
     return
 
 
-def update_screen(date, official_rate, parallel_rate, euro_rate, official_rate_delta, parallel_rate_delta):
+def update_screen(date, official_rate, parallel_rate, euro_rate, official_rate_delta, parallel_rate_delta, euro_delta):
     inky_display = auto()
     display_width = inky_display.resolution[0]
     display_height = inky_display.resolution[1]
@@ -293,8 +293,23 @@ def save_rate(official_rate, parallel_rate, euro_rate, date_rate):
 
 
 def exchange_rate_fluctuation(official_rate):
-    
-    return
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM exchange_rates ORDER BY id DESC LIMIT 2")
+    rows = cursor.fetchall()
+
+    dollar_delta = 0.0
+    parallel_delta = 0.0
+    euro_delta = 0.0
+
+    if len(rows) > 1:
+        # Calculate deltas
+        dollar_delta = rows[0][1] - rows[1][1]
+        parallel_delta = rows[0][2] - rows[1][2]
+        euro_delta = rows[0][3] - rows[1][3]
+
+    conn.close()
+    return dollar_delta, parallel_delta, euro_delta
 
 
 def show_error_screen(message, message2="", message3=""):
@@ -376,29 +391,31 @@ def main() -> int:
         if euros_data_json is not None:
             official_euro_rate = round(euros_data_json[0].get("promedio"), 2)
 
-        if not silent_mode:
-            print(date_rate)
-            print("Oficial (BCV):\tBs. {}".format(official_rate))
-            print("Paralelo (promedio):\tBs. {}".format(parallel_rate))
-            print("Euro (BCV):\tBs. {}".format(official_euro_rate))
+        # Update DB
+        if not dry_run:
+            init_db()
+            save_rate(official_rate, parallel_rate, official_euro_rate, date_rate)
+            # Calculate fluctuation
+            dollar_delta, parallel_delta, euro_delta = exchange_rate_fluctuation(official_rate)
 
-        # Calculate fluctuation
-        exchange_rate_fluctuation(official_rate)
+        if not silent_mode:
+            dollar_delta_txt = "+{}".format(dollar_delta) if dollar_delta > 0 else str(dollar_delta)
+            parallel_delta_txt = "+{}".format(parallel_delta) if parallel_delta > 0 else str(parallel_delta)
+            euro_delta_txt = "+{}".format(euro_delta) if euro_delta > 0 else str(euro_delta)
+
+            print(date_rate)
+            print("Oficial (BCV):\tBs. {} ({})".format(official_rate, dollar_delta_txt))
+            print("Paralelo (promedio):\tBs. {} ({})".format(parallel_rate, parallel_delta_txt))
+            print("Euro (BCV):\tBs. {} ({})".format(official_euro_rate, euro_delta_txt))
 
         # Update Screen
         if update_screen:
-            update_screen(date_rate, official_rate, parallel_rate, official_euro_rate, 0, 0)
+            update_screen(date_rate, official_rate, parallel_rate, official_euro_rate, dollar_delta, parallel_delta, euro_delta)
 
         # Play Sound
         if not mute:
             mp3_path = os.path.join(SCRIPT_DIR_PATH, "sound/notification.mp3")
             audio_subprocess = subprocess.Popen(["mpg123", "-q", mp3_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-        # Update DB
-        if not dry_run:
-            init_db()
-            save_rate(official_rate, parallel_rate, official_euro_rate, date_rate)
-
 
     except requests.exceptions.Timeout:
         # A Timeout occurred
