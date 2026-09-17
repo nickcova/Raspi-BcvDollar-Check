@@ -30,6 +30,7 @@ OFICIAL_TARGET_URL = "https://www.bcv.org.ve/" # TODO Delete this variable
 PARALLEL_TARGET_URL = "https://exchangemonitor.net/venezuela/monitor-dolar" # TODO Delete this variable
 DOLAR_API_URL = "https://ve.dolarapi.com/v1"
 DOLLARS_ENDPOINT = "/dolares"
+EUROS_ENDPOINT = "/euros"
 DB_FILE = Path("/home/nick/Data/exchange_rates.db")
 
 # Globals
@@ -149,9 +150,9 @@ def get_parallel_price():
     return rounded_amount
 
 
-def get_dolarapi_json():
+def get_dolarapi_json(endpoint):
     try:
-        response = requests.get(f"{DOLAR_API_URL}{DOLLARS_ENDPOINT}", timeout=10, verify=False)
+        response = requests.get(f"{DOLAR_API_URL}{endpoint}", timeout=10, verify=False)
 
         if response.status_code != requests.codes.ok:
             response.raise_for_status()
@@ -194,7 +195,7 @@ def get_dolarapi_json():
     return
 
 
-def update_screen(date, official_rate, parallel_rate, official_rate_delta, parallel_rate_delta):
+def update_screen(date, official_rate, parallel_rate, euro_rate, official_rate_delta, parallel_rate_delta):
     inky_display = auto()
     display_width = inky_display.resolution[0]
     display_height = inky_display.resolution[1]
@@ -221,6 +222,8 @@ def update_screen(date, official_rate, parallel_rate, official_rate_delta, paral
     parallel_txt = "PARALELO"
     parallel_rate_txt = "Bs.{}".format(parallel_rate)
     parallel_rate_delta_txt = "-99.99"
+    euro_txt = "EURO"
+    euro_rate_txt = "Bs.{}".format(euro_rate)
 
     # Calculate coordinates
     _,_,official_rate_delta_txt_w,_ = date_font.getbbox(official_rate_delta_txt)
@@ -236,20 +239,23 @@ def update_screen(date, official_rate, parallel_rate, official_rate_delta, paral
 
     draw.text((5, 26), official_txt, inky_display.BLACK, font=date_font)
     draw.text((93, 21), official_rate_txt, inky_display.BLACK, font=font)
-    draw.text((official_rate_delta_txt_X, 45), official_rate_delta_txt, inky_display.RED, font=date_font)
+    #draw.text((official_rate_delta_txt_X, 45), official_rate_delta_txt, inky_display.RED, font=date_font)
 
-    draw.text((5, 63), parallel_txt, inky_display.BLACK, font=date_font)
-    draw.text((93, 58), parallel_rate_txt, inky_display.BLACK, font=font)
-    draw.text((parallel_rate_delta_txt_X, 82), parallel_rate_delta_txt, inky_display.BLACK, font=date_font)
+    draw.text((5, 48), parallel_txt, inky_display.BLACK, font=date_font)
+    draw.text((93, 43), parallel_rate_txt, inky_display.BLACK, font=font)
+    #draw.text((parallel_rate_delta_txt_X, 82), parallel_rate_delta_txt, inky_display.BLACK, font=date_font)
+
+    draw.text((5, 70), euro_txt, inky_display.BLACK, font=date_font)
+    draw.text((93, 65), euro_rate_txt, inky_display.BLACK, font=font)
 
     # Draw images
     # -- Official rate delta arrow
-    draw = ImageDraw.Draw(arrow_up_img)
-    canvas.paste(arrow_up_img, (official_rate_delta_arrow_X, 48))
+    #draw = ImageDraw.Draw(arrow_up_img)
+    #canvas.paste(arrow_up_img, (official_rate_delta_arrow_X, 48))
 
     # -- Parallel rate delta arrow
-    draw = ImageDraw.Draw(arrow_down_img)
-    canvas.paste(arrow_down_img, (parallel_rate_delta_arrow_X, 87))
+    #draw = ImageDraw.Draw(arrow_down_img)
+    #canvas.paste(arrow_down_img, (parallel_rate_delta_arrow_X, 87))
 
     inky_display.set_image(canvas)
     inky_display.show()
@@ -359,23 +365,28 @@ def main() -> int:
         # Fetch exchange rates
         # official_price, date_price = get_price_from_bcv() TODO Delete this line
         # average_price = get_parallel_price() TODO Delete this line
-        data_json = get_dolarapi_json()
-        if data_json is not None:
-            official_rate = round(data_json[0].get("promedio"), 2)
-            parallel_rate = round(data_json[1].get("promedio"), 2)
-            date_rate = format_date(data_json[0].get("fechaActualizacion"))
+        dollars_data_json = get_dolarapi_json(DOLLARS_ENDPOINT)
+        if dollars_data_json is not None:
+            official_rate = round(dollars_data_json[0].get("promedio"), 2)
+            parallel_rate = round(dollars_data_json[1].get("promedio"), 2)
+            date_rate = format_date(dollars_data_json[0].get("fechaActualizacion"))
+
+        euros_data_json = get_dolarapi_json(EUROS_ENDPOINT)
+        if euros_data_json is not None:
+            official_euro_rate = round(euros_data_json[0].get("promedio"), 2)
 
         if not silent_mode:
             print(date_rate)
             print("Oficial (BCV):\tBs. {}".format(official_rate))
             print("Paralelo (promedio):\tBs. {}".format(parallel_rate))
+            print("Euro (BCV):\tBs. {}".format(official_euro_rate))
 
         # Calculate fluctuation
         exchange_rate_fluctuation(official_rate)
 
         # Update Screen
         if update_screen:
-            update_screen(date_rate, official_rate, parallel_rate, 0, 0)
+            update_screen(date_rate, official_rate, parallel_rate, official_euro_rate, 0, 0)
 
         # Play Sound
         if not mute:
