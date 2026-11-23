@@ -38,8 +38,18 @@ silent_mode = False
 mute = False
 dry_run = False
 
-# deprecated: "Use format_date() instead"
 def shorten_date(date_str):
+    """Shorten an exchange-rate date string to use a three-letter month abbreviation.
+
+    Args:
+        date_str: Date text containing the month in a separate whitespace-delimited field.
+
+    Returns:
+        The date text with the month abbreviated and joined back into a string.
+
+    Note:
+        This helper is deprecated; use format_date() for ISO date parsing.
+    """
     word_list = date_str.split(" ")
     month_str = word_list[2]
     word_list[2] = month_str[:3] + "."
@@ -48,6 +58,14 @@ def shorten_date(date_str):
 
 
 def format_date(date_str: str):
+    """Convert an ISO-formatted date string to the display format used by the app.
+
+    Args:
+        date_str: ISO-formatted date and time text.
+
+    Returns:
+        The formatted date and time, or None when the input cannot be parsed.
+    """
     try:
         dt = datetime.fromisoformat(date_str)
         formatted = dt.strftime("%Y-%m-%d %I:%M %p")
@@ -58,8 +76,20 @@ def format_date(date_str: str):
         return None
 
 
-# deprecated: "Use get_dolarapi_json() instead"
 def get_price_from_bcv():
+    """Fetch the official BCV dollar rate and date from the BCV website.
+
+    Returns:
+        A tuple containing the rounded dollar amount and date text.
+
+    Raises:
+        requests.exceptions.Timeout: When the BCV request times out.
+        requests.exceptions.HTTPError: When the BCV server returns an HTTP error.
+        requests.exceptions.ConnectionError: When the network connection fails.
+
+    Note:
+        This helper is deprecated; use get_dolarapi_json() instead.
+    """
     rounded_amount = -1
     date_price = ""
 
@@ -105,8 +135,20 @@ def get_price_from_bcv():
     return rounded_amount, date_price
 
 
-# deprecated: "Use get_dolarapi_json() instead"
 def get_parallel_price():
+    """Fetch the parallel dollar rate from the Monitor Dolar Venezuela page.
+
+    Returns:
+        The rounded parallel dollar amount, or -1 if no successful rate was obtained.
+
+    Raises:
+        requests.exceptions.Timeout: When the Monitor Dolar request times out.
+        requests.exceptions.HTTPError: When the remote server returns an HTTP error.
+        requests.exceptions.ConnectionError: When the network connection fails.
+
+    Note:
+        This helper is deprecated; use get_dolarapi_json() instead.
+    """
     rounded_amount = -1;
 
     try:
@@ -150,6 +192,20 @@ def get_parallel_price():
 
 
 def get_dolarapi_json(endpoint):
+    """Fetch and decode a JSON resource from the Dolar API.
+
+    Args:
+        endpoint: Dolar API endpoint path to append to DOLAR_API_URL.
+
+    Returns:
+        The decoded JSON response, or None when the response body is invalid JSON.
+
+    Raises:
+        requests.exceptions.Timeout: When the API request times out.
+        requests.exceptions.HTTPError: When the API returns an unsuccessful HTTP status.
+        requests.exceptions.ConnectionError: When the network connection fails.
+        requests.exceptions.RequestException: When another request error occurs.
+    """
     try:
         response = requests.get(f"{DOLAR_API_URL}{endpoint}", timeout=10, verify=False)
 
@@ -195,6 +251,20 @@ def get_dolarapi_json(endpoint):
 
 
 def update_screen(date, official_rate, parallel_rate, euro_rate, official_rate_delta, parallel_rate_delta, euro_rate_delta):
+    """Render exchange rates and fluctuation indicators on the attached Inky display.
+
+    Args:
+        date: Formatted date and time to show on the display.
+        official_rate: Current official dollar exchange rate.
+        parallel_rate: Current parallel dollar exchange rate.
+        euro_rate: Current euro exchange rate.
+        official_rate_delta: Change in the official dollar rate since the previous record.
+        parallel_rate_delta: Change in the parallel dollar rate since the previous record.
+        euro_rate_delta: Change in the euro rate since the previous record.
+
+    Returns:
+        None.
+    """
     inky_display = auto()
     display_width = inky_display.resolution[0]
     display_height = inky_display.resolution[1]
@@ -262,7 +332,11 @@ def update_screen(date, official_rate, parallel_rate, euro_rate, official_rate_d
 
 
 def init_db():
-    """Checks if the database file exists. Creates it and the schema if missing."""
+    """Create the exchange-rate database table when it does not already exist.
+
+    Returns:
+        None.
+    """
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
@@ -280,6 +354,17 @@ def init_db():
 
 
 def save_rate(official_rate, parallel_rate, euro_rate, date_rate):
+    """Save one snapshot of dollar and euro exchange rates to the database.
+
+    Args:
+        official_rate: Official dollar exchange rate.
+        parallel_rate: Parallel dollar exchange rate.
+        euro_rate: Official euro exchange rate.
+        date_rate: Formatted timestamp associated with the rates.
+
+    Returns:
+        None.
+    """
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute(
@@ -292,6 +377,15 @@ def save_rate(official_rate, parallel_rate, euro_rate, date_rate):
 
 
 def exchange_rate_fluctuation(official_rate):
+    """Calculate exchange-rate changes from the two latest database records.
+
+    Args:
+        official_rate: The current official dollar rate. It is accepted for API consistency
+            but is not used in the current calculation.
+
+    Returns:
+        A tuple containing the official dollar, parallel dollar, and euro deltas.
+    """
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM exchange_rates ORDER BY id DESC LIMIT 2")
@@ -312,6 +406,16 @@ def exchange_rate_fluctuation(official_rate):
 
 
 def show_error_screen(message, message2="", message3=""):
+    """Render an error message and timestamp on the attached Inky display.
+
+    Args:
+        message: Primary error message.
+        message2: Optional secondary error message.
+        message3: Optional tertiary error message.
+
+    Returns:
+        None.
+    """
     inky_display = auto()
     WIDTH, HEIGHT = inky_display.resolution
 
@@ -343,6 +447,11 @@ def show_error_screen(message, message2="", message3=""):
 
 
 def main() -> int:
+    """Parse command-line arguments and run the exchange-rate update workflow.
+
+    Returns:
+        0 on success, or 1-3 when a timeout, HTTP, or connection error occurs.
+    """
     global silent_mode
     global update_screen
     global mute
